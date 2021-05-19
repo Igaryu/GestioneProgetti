@@ -1,0 +1,104 @@
+#!/bin/bash
+CurDir="$(pwd)"
+ProjName=$(basename "`pwd`")
+
+Password=""
+TmpPasswd1=""
+TmpPasswd2=""
+ScrivenerBCK="$HOME/Documents/EncrypVolumes/ScrivenerBCK.dmg"
+
+##
+# verifica del sistema operativo da cui viene lanciato lo script
+# e settaggio del programma per la cancellazione sicura con 
+# precedenza a bcwipe
+##
+
+OS=""
+SecureDelete=""
+Param=""
+
+if [ "$(uname)" == "Darwin" ]; then
+   OS="MacOsx"
+   if ! [ -x "$(command -v bcwipe)" ]; then
+      echo "No app for secure deletion found: using traditional rm -rf command."
+      SecureDelete="rm"
+      Param=" -r "
+   else
+      SecureDelete="bcwipe"
+      Param=" -md -rfI "
+   fi   
+elif [ "$(uname)" == "Linux" ]; then
+   OS="Linux"
+    if ! [ -x "$(command -v wipe)" ]; then
+      echo "Programma per la cancellazione sicura non prente: uso il tradizioale rm -rf come alternativa."
+      SecureDelete="rm"
+      Param=" -r "
+  else
+      SecureDelete="wipe"
+      Param=" -md -rfI "
+  fi    
+fi
+
+
+read -s -p "Digita Password: " TmpPasswd1
+echo -e "\n"
+read -s -p "Conferma Password: " TmpPasswd2
+echo -e "\n"
+
+if [ "$TmpPasswd1" == "$TmpPasswd2" ]; then
+    Password=$TmpPasswd1
+    unset TmpPassword1
+    unset TmpPassword2
+else
+    unset TmpPassword1
+    unset TmpPassword2
+    unset Password
+    echo "Le password NON corrispondono!!!!"
+    exit -9
+fi    
+
+if [ -d /Volumes/ScrivenerBCK ]; then
+     echo "Il volume protetto ScrivenerBCK è già montato!!!"
+else
+#     printf '%s' $Password | hdiutil attach -quiet $HOME/Documents/EncrypVolumes/ScrivenerBCK.dmg -stdinpass
+     printf '%s' $Password | hdiutil attach -quiet "$ScrivenerBCK" -stdinpass
+fi
+
+
+cd /tmp/
+echo -e 'Creo struttura per progetto ' $ProjName '...\n'
+
+mkdir "$ProjName"
+
+mv "$CurDir"/"$ProjName".scriv "$ProjName"/
+tar cf "$ProjName.tar" "$ProjName"
+gpg2 --yes --batch --passphrase="$Password" --output "$CurDir"/"$ProjName".tar.gpg -c  "$ProjName".tar > 1  2>&1
+
+
+echo -e "\nCreo, se non esiste, cartella dedicata ai backups del progetto $ProjName"
+if  [ ! -d /Volumes/ScrivenerBCK/"$ProjName" ]; then
+    mkdir /Volumes/ScrivenerBCK/"$ProjName" 
+fi 
+
+#
+#insrire ID della chiave che si vuole usare per firmare il file!!!
+#
+echo -e "\nFirmo il progetto crittato..."
+gpg2 --yes --batch -u AD1AF7298C3F5698! --output "$CurDir"/"$ProjName".tar.gpg.sig --detach-sign --armor  "$CurDir"/"$ProjName".tar.gpg 
+
+
+
+echo -e "\n\nDistruggo tracce di tutti i files di lavoro... (uso "$SecureDelete" con "$Param" paramentrti per la cancellazione)" 
+if [ "$SecureDelete" != "rm -r" ]; then
+    echo -e "\n\nCancello in sicurezza dei file di lavoro: può volerci del tempo. Attendi..."
+    bcwipe -md -rfI   "$ProjName"*
+    echo -e "\n\nCancellazione sicura dei file sorgenti effettuata con successo!!"
+else
+    echo -e "\n\nCancellazion NON in sicurezza dei file di lavoro: Attendi..."
+    rm -r "$ProjName"* 
+    echo -e "\n\nCancellazione NON in sicurezza dei file sorgenti effettuata con successo!!"
+fi
+
+echo -e "\n\nFiles in chiaro distrutti !!\n"
+cd "$CurDir"
+echo -e "\n\nProgetto "$ProjName": generato e pronto ad essere usato.\n\n"

@@ -1,0 +1,154 @@
+#!/bin/bash
+
+CurDir=$(pwd)
+ProjName=$(basename "`pwd`")
+VC="/Applications/VeraCrypt.app/Contents/MacOS/veracrypt "
+ED="$HOME/Documents/EncrypVolumes"
+ScrivenerBCK="$HOME/Documents/EncrypVolumes/ScrivenerBCK.dmg"
+
+OS=""
+SecureDelete=""
+
+if [ "$(uname)" == "Darwin" ]; then
+   OS="MacOsx"
+   if ! [ -x "$(command -v bcwipe)" ]; then
+      echo "No app for secure deletion found: using traditional rm -rf command."
+      SecureDelete="rm"
+   else
+      SecureDelete="bcwipe"
+   fi   
+elif [ "$(uname)" == "Linux" ]; then
+   OS="Linux"
+    if ! [ -x "$(command -v wipe)" ]; then
+      echo "No app for secure deletion found: using traditional rm -rf command."
+      SecureDelete="rm"
+  else
+      SecureDelete="wipe"
+  fi    
+fi
+
+
+SN=""
+Password=""
+TmpPasswd1=""
+TmpPasswd2=""
+
+read -s -p "Digita Password: " TmpPasswd1
+echo -e "\n"
+read -s -p "Conferma Password: " TmpPasswd2
+echo -e "\n"
+
+if [ "$TmpPasswd1" == "$TmpPasswd2" ]; then
+    Password=$TmpPasswd1
+    unset TmpPassword1
+    unset TmpPassword2
+else
+    unset TmpPassword1
+    unset TmpPassword2
+    unset Password
+    echo "Le password NON corrispondono!!!!"
+    exit -9
+fi
+
+if [ -d /Volumes/ScrivenerBCK ]; then
+     echo "Il volume protetto ScrivenerBCK è già montato!!!"
+else
+     printf '%s' $Password | hdiutil attach -quiet "$ScrivnerBCK" -stdinpass
+fi
+
+echo -e "\n"
+read -p "Vuoi montare disco copia in chiaro? " SN
+if [ $SN != "s" ]; then
+    echo "Ok! "
+else    
+    read -s -p "Digita password: " TmpPasswd1
+    read -s -p "Conferma password: " TmpPasswd2
+    if [ "$TmpPasswd1" == "$TmpPasswd2" ]; then
+       echo -e "\n\nAttendi che il volume sia montato prima di proseguire..."
+       $VC -t --protect-hidden="no" -k "" --pim=0  -p "$TmpPasswd1" "$ED"/Documenti\ In\ chiaro.vrc /Volumes/Documenti\ In\ Chiaro
+       echo -e "\n\nVolume montato correttamente!!"
+       unset TmpPassword1
+       unset TmpPassword2
+    else
+       unset TmpPassword1
+       unset TmpPassword2
+       unset Password
+       echo "Le password NON corrispondono!!!!"
+       exit -9
+    fi
+fi
+
+cd /tmp
+gpg --yes --batch --passphrase "$Password" --output  "$ProjName".tar -d "$CurDir"/"$ProjName".tar.gpg > 1  2>&1 
+
+
+tar pxf "$ProjName".tar &&
+
+open /tmp/"$ProjName"/"$ProjName".scriv
+read -p "Premi [Invio] per continuare..."
+
+# 
+# Se attivato disco in chiaro eseguo copia in chiaro
+#
+
+if [ "$SN" == "s" ]; then
+   echo -e "\n\nEseguo copia in chiaro..."
+   cp -a "$ProjName"/*  /Volumes/Documenti\ In\ Chiaro/"$ProjName"/
+   echo -e "\n\nCopia in chiaro eseguita: Attendi che smonto il disco appropritato..."
+   $VC -t -d /Volumes/Documenti\ In\ Chiaro
+   echo -e "\n\nvolume copie in chiaro smontato!"
+fi
+#
+# Sposto eventuali backups nella dir corretta.
+#
+if ls $HOME/Documents/Backups/"$ProjName"*.zip > 1  2>&1; then
+    mv $HOME/Documents/Backups/"$ProjName"*.zip /Volumes/ScrivenerBCK/"$ProjName"/
+else 
+    tput bel; tput bel; tput bel
+    echo "ATTENZIONE: non ci sono file di backup per questa sessione!!"
+fi 
+echo -e "\nComprimo il progetto..."
+tar cf "$ProjName".tar "$ProjName"/ &&
+echo -e "\nCripto il progetto..."
+gpg2 --yes --batch --passphrase="$Password" --output "$CurDir"/"$ProjName".tar.gpg -c  "$ProjName".tar > 1  2>&1
+
+#
+# Firmo il progetto crittogrtafato usando una sottochiave creata appositamente
+# per il prgettole in questione.
+#
+# Il carattere punto esclamativ,o dopo la chiave, è necessario per imporre 
+# una specifica sottochiave altrimenti viene usata per defualt
+# quella della chiave PADRE.
+# Chiaramente DOVETE sostiture la chiave con la vostra primaria o subkey
+# altrimenti la firma non verrà apposta.
+#
+
+echo -e "\nFirmo il progetto crittato..."
+gpg2 --yes --batch -u AD1AF7298C3F5698! --output "$CurDir"/"$ProjName".tar.gpg.sig --detach-sign --armor  "$CurDir"/"$ProjName".tar.gpg 
+
+echo -e "\n\nDistruggo tracce di tutti i files in chiaro...."
+
+
+if [ $OS == "MacOsx" ]; then
+    if [ -x "$(command -v $SecureDelete)" ]; then
+        echo -e "\n\nCancello in sicurezza il file sorgente: può volerci del tempo. Attendi..."
+        bcwipe -md -fI "$ProjName".tar &&
+        bcwipe -md -rfI "$ProjName"/ 
+        echo -e "\n\nCancellazione sicura del file sorgente($1) effettuata con successo!!"
+    else
+        rm -r  "$ProjName"*
+    fi    
+elif [ $OS == "Linux" ]; then    
+    if [ -x "$(command -v $SecureDelete)" ]; then
+        echo -e "\n\nCancello in sicurezza il file sorgente: può volerci del tempo. Attendi..."
+        wipe -md -fI  "$ProjName".tar &&
+        wipe  -md -rfI "$ProjName"/ 
+        echo -e "\n\nCancellazione sicura del file sorgente($1) effettuata con successo!!"
+    else 
+        echo -e "\n\nCancellazione tradizinoale del file sorgente..."
+        rm  -r  "$ProjName"*
+        echo -e "\n\nCancellazione sicura del file sorgente($1) effettuata con successo!!"
+    fi
+fi
+
+echo -e "\n\nFiles in chiaro distrutti !!\n"
