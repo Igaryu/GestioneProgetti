@@ -15,7 +15,7 @@
 
 
 ###### Note:
- I nomi degli script iniziano con il prefisso **gpg** per rammentare che questo tool è il cuore del progetto. Esistono fondamentalmente due script da usare:
+I nomi degli script iniziano con il prefisso **gpg** per rammentare che questo tool è il cuore del progetto. Esistono fondamentalmente due script da usare:
 
 1. CreaProgetto
 2. EditaProgetto
