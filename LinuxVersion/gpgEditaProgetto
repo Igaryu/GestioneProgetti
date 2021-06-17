@@ -1,37 +1,37 @@
 #!/bin/bash
 
-CurDir=$(pwd)
-ProjName=$(basename "`pwd`")
-VC="/Applications/VeraCrypt.app/Contents/MacOS/veracrypt "
-ED="$HOME/Documents/EncrypVolumes"
-ScrivenerBCK="$HOME/Documents/EncrypVolumes/ScrivenerBCK.dmg"
+CurDir = $(pwd)
+ProjName = $(basename "`pwd`")
+VC = "/Applications/VeraCrypt.app/Contents/MacOS/veracrypt "
+ED = "$HOME/Documents/EncrypVolumes"
+ScrivenerBCK = "$HOME/Documents/EncrypVolumes/ScrivenerBCK.dmg"
 
-OS=""
-SecureDelete=""
+OS = ''
+SecureDelete = ''
 
 if [ "$(uname)" == "Darwin" ]; then
    OS="MacOsx"
    if ! [ -x "$(command -v bcwipe)" ]; then
       echo "No app for secure deletion found: using traditional rm -rf command."
-      SecureDelete="rm"
+      SecureDelete = "rm"
    else
-      SecureDelete="bcwipe"
+      SecureDelete = "bcwipe"
    fi   
 elif [ "$(uname)" == "Linux" ]; then
    OS="Linux"
     if ! [ -x "$(command -v wipe)" ]; then
       echo "No app for secure deletion found: using traditional rm -rf command."
-      SecureDelete="rm"
+      SecureDelete = "rm"
   else
-      SecureDelete="wipe"
+      SecureDelete = "wipe"
   fi    
 fi
 
 
-SN=""
-Password=""
-TmpPasswd1=""
-TmpPasswd2=""
+SN = ""
+Password = ""
+TmpPasswd1 = ""
+TmpPasswd2 = ""
 
 read -s -p "Digita Password: " TmpPasswd1
 echo -e "\n"
@@ -39,7 +39,7 @@ read -s -p "Conferma Password: " TmpPasswd2
 echo -e "\n"
 
 if [ "$TmpPasswd1" == "$TmpPasswd2" ]; then
-    Password=$TmpPasswd1
+    Password = $TmpPasswd1
     unset TmpPassword1
     unset TmpPassword2
 else
